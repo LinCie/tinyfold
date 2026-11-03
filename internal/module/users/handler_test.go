@@ -90,10 +90,14 @@ func TestHandler_GetMany(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, response.Code)
 	var body struct {
-		Data []users.User `json:"data"`
+		Data []users.UserResponse `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
-	assert.Equal(t, want, body.Data)
+	wantResponse := make([]users.UserResponse, 0, len(want))
+	for _, u := range want {
+		wantResponse = append(wantResponse, users.UserResponse(u))
+	}
+	assert.Equal(t, wantResponse, body.Data)
 }
 
 func TestHandler_GetManyMapsServiceError(t *testing.T) {
@@ -183,8 +187,9 @@ func jsonBody(t *testing.T, value any) *bytes.Reader {
 func assertUserResponse(t *testing.T, response *httptest.ResponseRecorder, want *users.User) {
 	t.Helper()
 	var body struct {
-		Data *users.User `json:"data"`
+		Data *users.UserResponse `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
-	assert.Equal(t, want, body.Data)
+	wantResponse := users.UserResponse(*want)
+	assert.Equal(t, &wantResponse, body.Data)
 }
