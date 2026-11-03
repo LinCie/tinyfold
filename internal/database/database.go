@@ -7,5 +7,11 @@ import (
 )
 
 func NewDatabase(databaseURL string) (*sqlx.DB, error) {
-	return sqlx.Connect("sqlite", databaseURL)
+	db, err := sqlx.Connect("sqlite", databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+
+	return db, nil
 }
