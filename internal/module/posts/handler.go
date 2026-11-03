@@ -1,7 +1,6 @@
 package posts
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -20,8 +19,7 @@ func NewHandler(service Service) *Handler {
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var post Post
-	if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
-		httpx.RespondError(w, http.StatusBadRequest, "invalid_json", "Invalid JSON body")
+	if !httpx.DecodeJSON(w, r, &post) {
 		return
 	}
 
@@ -53,8 +51,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	var post Post
-	if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
-		httpx.RespondError(w, http.StatusBadRequest, "invalid_json", "Invalid JSON body")
+	if !httpx.DecodeJSON(w, r, &post) {
 		return
 	}
 	post.ID = chi.URLParam(r, "id")
