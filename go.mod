@@ -4,9 +4,9 @@ go 1.26.8
 
 require (
 	github.com/go-chi/chi/v5 v5.5.0
-	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/pressly/goose/v3 v3.29.0
+	github.com/segmentio/ksuid v1.0.4
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/mock v0.6.0
 	modernc.org/sqlite v1.61.0
@@ -14,6 +14,7 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect

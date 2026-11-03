@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/segmentio/ksuid"
 )
 
 //go:generate mockgen -source=repository.go -destination=mock/repository.go -package=mock
@@ -34,7 +34,7 @@ func (p *sqliteRepository) Create(ctx context.Context, post *Post) (*Post, error
 		return nil, ErrInvalidPost
 	}
 	created := *post
-	created.ID = uuid.NewString()
+	created.ID = ksuid.New().String()
 	created.CreatedAt = time.Now().UTC()
 	created.UpdatedAt = created.CreatedAt
 
