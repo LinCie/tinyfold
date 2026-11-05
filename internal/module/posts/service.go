@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"tinyfold/internal/pkg/validation"
 )
 
 //go:generate mockgen -source=service.go -destination=mock/service.go -package=mock
@@ -191,5 +193,5 @@ func validTransition(from, to PostStatus) bool {
 }
 
 func invalid(field, reason string) error {
-	return &ValidationError{Field: field, Reason: reason}
+	return validation.New(ErrInvalidPost, field, reason)
 }

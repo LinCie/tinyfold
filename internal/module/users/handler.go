@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"tinyfold/internal/httpx"
+	"tinyfold/internal/pkg/httpx"
 )
 
 type Handler struct {
