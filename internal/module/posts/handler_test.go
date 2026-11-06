@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"tinyfold/internal/model"
 	"tinyfold/internal/module/posts"
 	postsMock "tinyfold/internal/module/posts/mock"
 )
@@ -39,8 +40,8 @@ func serve(handler http.Handler, method, target string, body io.Reader) *httptes
 func TestHandler_Create(t *testing.T) {
 	service := postsMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	input := &posts.Post{Title: "A title", Slug: "a-title", Content: "Body"}
-	created := &posts.Post{ID: "post-1", Title: input.Title, Slug: input.Slug, Content: input.Content}
+	input := &model.Post{Title: "A title", Slug: "a-title", Content: "Body"}
+	created := &model.Post{ID: "post-1", Title: input.Title, Slug: input.Slug, Content: input.Content}
 	service.EXPECT().Create(gomock.Any(), input).Return(created, nil)
 
 	response := serve(handler, http.MethodPost, "/posts", jsonBody(t, input))
@@ -70,7 +71,7 @@ func TestHandler_CreateMapsServiceErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := postsMock.NewMockService(gomock.NewController(t))
 			handler := handlerForTest(t, service)
-			input := &posts.Post{Title: "A title", Slug: "a-title"}
+			input := &model.Post{Title: "A title", Slug: "a-title"}
 			service.EXPECT().Create(gomock.Any(), input).Return(nil, tt.err)
 
 			response := serve(handler, http.MethodPost, "/posts", jsonBody(t, input))
@@ -83,14 +84,14 @@ func TestHandler_CreateMapsServiceErrors(t *testing.T) {
 func TestHandler_GetMany(t *testing.T) {
 	service := postsMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	want := []posts.Post{{ID: "post-1", Title: "A title", Slug: "a-title"}}
+	want := []model.Post{{ID: "post-1", Title: "A title", Slug: "a-title"}}
 	service.EXPECT().GetMany(gomock.Any()).Return(want, nil)
 
 	response := serve(handler, http.MethodGet, "/posts", nil)
 
 	assert.Equal(t, http.StatusOK, response.Code)
 	var body struct {
-		Data []posts.Post `json:"data"`
+		Data []model.Post `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
 	assert.Equal(t, want, body.Data)
@@ -109,7 +110,7 @@ func TestHandler_GetManyMapsServiceError(t *testing.T) {
 func TestHandler_GetByID(t *testing.T) {
 	service := postsMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	want := &posts.Post{ID: "post-1", Title: "A title", Slug: "a-title"}
+	want := &model.Post{ID: "post-1", Title: "A title", Slug: "a-title"}
 	service.EXPECT().GetByID(gomock.Any(), "post-1").Return(want, nil)
 
 	response := serve(handler, http.MethodGet, "/posts/post-1", nil)
@@ -131,9 +132,9 @@ func TestHandler_GetByIDReturnsNotFound(t *testing.T) {
 func TestHandler_Update(t *testing.T) {
 	service := postsMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	input := &posts.Post{Title: "Updated title", Slug: "updated-title", Content: "Body"}
-	updated := &posts.Post{ID: "post-1", Title: input.Title, Slug: input.Slug, Content: input.Content}
-	service.EXPECT().Update(gomock.Any(), gomock.Cond(func(got *posts.Post) bool {
+	input := &model.Post{Title: "Updated title", Slug: "updated-title", Content: "Body"}
+	updated := &model.Post{ID: "post-1", Title: input.Title, Slug: input.Slug, Content: input.Content}
+	service.EXPECT().Update(gomock.Any(), gomock.Cond(func(got *model.Post) bool {
 		return got.ID == "post-1" && got.Title == input.Title && got.Slug == input.Slug && got.Content == input.Content
 	})).Return(updated, nil)
 
@@ -180,10 +181,10 @@ func jsonBody(t *testing.T, value any) *bytes.Reader {
 	return bytes.NewReader(body)
 }
 
-func assertPostResponse(t *testing.T, response *httptest.ResponseRecorder, want *posts.Post) {
+func assertPostResponse(t *testing.T, response *httptest.ResponseRecorder, want *model.Post) {
 	t.Helper()
 	var body struct {
-		Data *posts.Post `json:"data"`
+		Data *model.Post `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
 	assert.Equal(t, want, body.Data)

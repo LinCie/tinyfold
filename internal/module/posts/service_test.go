@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"tinyfold/internal/model"
 	"tinyfold/internal/module/posts"
 	postsMock "tinyfold/internal/module/posts/mock"
 )
@@ -25,27 +26,27 @@ func newService(t *testing.T) (*postsMock.MockRepository, posts.Service) {
 func TestService_Create(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
-		status     posts.PostStatus
-		wantStatus posts.PostStatus
+		status     model.PostStatus
+		wantStatus model.PostStatus
 	}{
-		{name: "defaults empty status to draft", wantStatus: posts.PostStatusDraft},
-		{name: "accepts explicit draft", status: posts.PostStatusDraft, wantStatus: posts.PostStatusDraft},
+		{name: "defaults empty status to draft", wantStatus: model.PostStatusDraft},
+		{name: "accepts explicit draft", status: model.PostStatusDraft, wantStatus: model.PostStatusDraft},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, service := newService(t)
 			ctx := context.Background()
-			input := &posts.Post{
+			input := &model.Post{
 				Title: "  Hello world  ", Slug: " hello-world ", Content: "", Status: tt.status,
 			}
 			original := clonePost(*input)
-			persisted := &posts.Post{
+			persisted := &model.Post{
 				ID: "post-1", Title: "Hello world", Slug: "hello-world", Status: tt.wantStatus,
 				CreatedAt: time.Now().UTC(),
 			}
 			persisted.UpdatedAt = persisted.CreatedAt
 
 			repo.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(
-				func(_ context.Context, got *posts.Post) (*posts.Post, error) {
+				func(_ context.Context, got *model.Post) (*model.Post, error) {
 					assert.Equal(t, "Hello world", got.Title, "repository should receive a trimmed title")
 					assert.Equal(t, "hello-world", got.Slug, "repository should receive a trimmed slug")
 					assert.Empty(t, got.Content, "repository should receive content unchanged")
@@ -66,19 +67,19 @@ func TestService_CreateIgnoresClientManagedMetadata(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
 	clientTime := time.Date(2040, 1, 2, 3, 4, 5, 0, time.UTC)
-	input := &posts.Post{
-		ID: "client-id", Title: "Title", Slug: "title", Status: posts.PostStatusDraft,
+	input := &model.Post{
+		ID: "client-id", Title: "Title", Slug: "title", Status: model.PostStatusDraft,
 		CreatedAt: clientTime, UpdatedAt: clientTime, PublishedAt: &clientTime, ArchivedAt: &clientTime,
 	}
 	original := clonePost(*input)
-	persisted := &posts.Post{
-		ID: "generated-id", Title: "Title", Slug: "title", Status: posts.PostStatusDraft,
+	persisted := &model.Post{
+		ID: "generated-id", Title: "Title", Slug: "title", Status: model.PostStatusDraft,
 		CreatedAt: time.Now().UTC(),
 	}
 	persisted.UpdatedAt = persisted.CreatedAt
 
 	repo.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(
-		func(_ context.Context, got *posts.Post) (*posts.Post, error) {
+		func(_ context.Context, got *model.Post) (*model.Post, error) {
 			assert.Empty(t, got.ID)
 			assert.Zero(t, got.CreatedAt)
 			assert.Zero(t, got.UpdatedAt)
@@ -97,30 +98,30 @@ func TestService_CreateIgnoresClientManagedMetadata(t *testing.T) {
 }
 
 func TestService_CreateValidation(t *testing.T) {
-	valid := func() *posts.Post {
-		return &posts.Post{Title: "Title", Slug: "title", Status: posts.PostStatusDraft}
+	valid := func() *model.Post {
+		return &model.Post{Title: "Title", Slug: "title", Status: model.PostStatusDraft}
 	}
 	tests := []struct {
 		name  string
-		post  func() *posts.Post
+		post  func() *model.Post
 		field string
 	}{
-		{name: "nil post", post: func() *posts.Post { return nil }, field: "post"},
-		{name: "blank title", post: func() *posts.Post { p := valid(); p.Title = " \t\n "; return p }, field: "title"},
-		{name: "title too long", post: func() *posts.Post { p := valid(); p.Title = strings.Repeat("x", posts.MaxTitleLength+1); return p }, field: "title"},
-		{name: "blank slug", post: func() *posts.Post { p := valid(); p.Slug = "  "; return p }, field: "slug"},
-		{name: "uppercase slug", post: func() *posts.Post { p := valid(); p.Slug = "Hello"; return p }, field: "slug"},
-		{name: "spaces in slug", post: func() *posts.Post { p := valid(); p.Slug = "hello world"; return p }, field: "slug"},
-		{name: "leading hyphen", post: func() *posts.Post { p := valid(); p.Slug = "-hello"; return p }, field: "slug"},
-		{name: "trailing hyphen", post: func() *posts.Post { p := valid(); p.Slug = "hello-"; return p }, field: "slug"},
-		{name: "repeated hyphen", post: func() *posts.Post { p := valid(); p.Slug = "hello--world"; return p }, field: "slug"},
-		{name: "underscore in slug", post: func() *posts.Post { p := valid(); p.Slug = "hello_world"; return p }, field: "slug"},
-		{name: "non-ascii slug", post: func() *posts.Post { p := valid(); p.Slug = "café"; return p }, field: "slug"},
-		{name: "slug too long", post: func() *posts.Post { p := valid(); p.Slug = strings.Repeat("a", posts.MaxSlugLength+1); return p }, field: "slug"},
-		{name: "content too long", post: func() *posts.Post { p := valid(); p.Content = strings.Repeat("x", posts.MaxContentLength+1); return p }, field: "content"},
-		{name: "cannot create published post", post: func() *posts.Post { p := valid(); p.Status = posts.PostStatusPublished; return p }, field: "status"},
-		{name: "cannot create archived post", post: func() *posts.Post { p := valid(); p.Status = posts.PostStatusArchived; return p }, field: "status"},
-		{name: "unknown status", post: func() *posts.Post { p := valid(); p.Status = "scheduled"; return p }, field: "status"},
+		{name: "nil post", post: func() *model.Post { return nil }, field: "post"},
+		{name: "blank title", post: func() *model.Post { p := valid(); p.Title = " \t\n "; return p }, field: "title"},
+		{name: "title too long", post: func() *model.Post { p := valid(); p.Title = strings.Repeat("x", posts.MaxTitleLength+1); return p }, field: "title"},
+		{name: "blank slug", post: func() *model.Post { p := valid(); p.Slug = "  "; return p }, field: "slug"},
+		{name: "uppercase slug", post: func() *model.Post { p := valid(); p.Slug = "Hello"; return p }, field: "slug"},
+		{name: "spaces in slug", post: func() *model.Post { p := valid(); p.Slug = "hello world"; return p }, field: "slug"},
+		{name: "leading hyphen", post: func() *model.Post { p := valid(); p.Slug = "-hello"; return p }, field: "slug"},
+		{name: "trailing hyphen", post: func() *model.Post { p := valid(); p.Slug = "hello-"; return p }, field: "slug"},
+		{name: "repeated hyphen", post: func() *model.Post { p := valid(); p.Slug = "hello--world"; return p }, field: "slug"},
+		{name: "underscore in slug", post: func() *model.Post { p := valid(); p.Slug = "hello_world"; return p }, field: "slug"},
+		{name: "non-ascii slug", post: func() *model.Post { p := valid(); p.Slug = "café"; return p }, field: "slug"},
+		{name: "slug too long", post: func() *model.Post { p := valid(); p.Slug = strings.Repeat("a", posts.MaxSlugLength+1); return p }, field: "slug"},
+		{name: "content too long", post: func() *model.Post { p := valid(); p.Content = strings.Repeat("x", posts.MaxContentLength+1); return p }, field: "content"},
+		{name: "cannot create published post", post: func() *model.Post { p := valid(); p.Status = model.PostStatusPublished; return p }, field: "status"},
+		{name: "cannot create archived post", post: func() *model.Post { p := valid(); p.Status = model.PostStatusArchived; return p }, field: "status"},
+		{name: "unknown status", post: func() *model.Post { p := valid(); p.Status = "scheduled"; return p }, field: "status"},
 	}
 
 	for _, tt := range tests {
@@ -135,15 +136,15 @@ func TestService_CreateValidation(t *testing.T) {
 func TestService_CreateAcceptsFieldBoundaries(t *testing.T) {
 	for _, tt := range []struct {
 		name string
-		post *posts.Post
+		post *model.Post
 	}{
 		{
 			name: "200 character title and slug",
-			post: &posts.Post{Title: strings.Repeat("é", posts.MaxTitleLength), Slug: strings.Repeat("a", posts.MaxSlugLength)},
+			post: &model.Post{Title: strings.Repeat("é", posts.MaxTitleLength), Slug: strings.Repeat("a", posts.MaxSlugLength)},
 		},
 		{
 			name: "content at one mebibyte",
-			post: &posts.Post{Title: "Title", Slug: "title", Content: strings.Repeat("x", posts.MaxContentLength)},
+			post: &model.Post{Title: "Title", Slug: "title", Content: strings.Repeat("x", posts.MaxContentLength)},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -161,14 +162,14 @@ func TestService_CreateReturnsRepositoryError(t *testing.T) {
 	repoErr := errors.New("duplicate slug")
 	repo.EXPECT().Create(ctx, gomock.Any()).Return(nil, repoErr)
 
-	_, err := service.Create(ctx, &posts.Post{Title: "Title", Slug: "title"})
+	_, err := service.Create(ctx, &model.Post{Title: "Title", Slug: "title"})
 	require.ErrorIs(t, err, repoErr)
 }
 
 func TestService_GetMany(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
-	want := []posts.Post{testPost("first", posts.PostStatusDraft), testPost("second", posts.PostStatusPublished)}
+	want := []model.Post{testPost("first", model.PostStatusDraft), testPost("second", model.PostStatusPublished)}
 	repo.EXPECT().GetMany(ctx).Return(want, nil)
 
 	got, err := service.GetMany(ctx)
@@ -198,7 +199,7 @@ func TestService_GetManyReturnsRepositoryError(t *testing.T) {
 func TestService_GetByID(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
-	want := testPost("post-1", posts.PostStatusDraft)
+	want := testPost("post-1", model.PostStatusDraft)
 	repo.EXPECT().GetByID(ctx, "post-1").Return(&want, nil)
 
 	got, err := service.GetByID(ctx, " post-1 ")
@@ -242,22 +243,22 @@ func TestService_UpdatePublishesDraftAndPreservesManagedFields(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
 	createdAt := time.Now().UTC().Add(-24 * time.Hour)
-	current := posts.Post{
-		ID: "post-1", Title: "Before", Slug: "before", Content: "old content", Status: posts.PostStatusDraft,
+	current := model.Post{
+		ID: "post-1", Title: "Before", Slug: "before", Content: "old content", Status: model.PostStatusDraft,
 		CreatedAt: createdAt, UpdatedAt: createdAt.Add(time.Hour),
 	}
 	clientTimestamp := time.Now().UTC().Add(24 * time.Hour)
-	input := &posts.Post{
-		ID: " post-1 ", Title: "  After  ", Slug: " after ", Content: "new content", Status: posts.PostStatusPublished,
+	input := &model.Post{
+		ID: " post-1 ", Title: "  After  ", Slug: " after ", Content: "new content", Status: model.PostStatusPublished,
 		CreatedAt: clientTimestamp, UpdatedAt: clientTimestamp, PublishedAt: &clientTimestamp, ArchivedAt: &clientTimestamp,
 	}
 	original := clonePost(*input)
-	var updated *posts.Post
+	var updated *model.Post
 
 	gomock.InOrder(
 		repo.EXPECT().GetByID(ctx, "post-1").Return(&current, nil),
 		repo.EXPECT().Update(ctx, gomock.Any()).DoAndReturn(
-			func(_ context.Context, got *posts.Post) (*posts.Post, error) {
+			func(_ context.Context, got *model.Post) (*model.Post, error) {
 				updated = clonePostPtr(got)
 				return clonePostPtr(got), nil
 			},
@@ -274,7 +275,7 @@ func TestService_UpdatePublishesDraftAndPreservesManagedFields(t *testing.T) {
 	assert.Equal(t, "After", got.Title)
 	assert.Equal(t, "after", got.Slug)
 	assert.Equal(t, "new content", got.Content)
-	assert.Equal(t, posts.PostStatusPublished, got.Status)
+	assert.Equal(t, model.PostStatusPublished, got.Status)
 	assert.Equal(t, createdAt, got.CreatedAt)
 	assert.True(t, !got.UpdatedAt.Before(start) && !got.UpdatedAt.After(end), "UpdatedAt = %v, want a timestamp between %v and %v", got.UpdatedAt, start, end)
 	require.NotNil(t, got.PublishedAt)
@@ -289,8 +290,8 @@ func TestService_UpdateStatusTransitionsAndTimestamps(t *testing.T) {
 	oldArchivedAt := oldTime.Add(2 * time.Hour)
 	tests := []struct {
 		name             string
-		from             posts.PostStatus
-		to               posts.PostStatus
+		from             model.PostStatus
+		to               model.PostStatus
 		publishedAt      *time.Time
 		archivedAt       *time.Time
 		wantPublishedSet bool
@@ -298,12 +299,12 @@ func TestService_UpdateStatusTransitionsAndTimestamps(t *testing.T) {
 		preservePub      bool
 		preserveArchived bool
 	}{
-		{name: "draft remains draft", from: posts.PostStatusDraft, to: posts.PostStatusDraft},
-		{name: "draft becomes published", from: posts.PostStatusDraft, to: posts.PostStatusPublished, wantPublishedSet: true},
-		{name: "draft becomes archived", from: posts.PostStatusDraft, to: posts.PostStatusArchived, wantArchivedSet: true},
-		{name: "published remains published", from: posts.PostStatusPublished, to: posts.PostStatusPublished, publishedAt: &oldPublishedAt, wantPublishedSet: true, preservePub: true},
-		{name: "published becomes archived", from: posts.PostStatusPublished, to: posts.PostStatusArchived, publishedAt: &oldPublishedAt, wantPublishedSet: true, wantArchivedSet: true, preservePub: true},
-		{name: "archived remains archived", from: posts.PostStatusArchived, to: posts.PostStatusArchived, publishedAt: &oldPublishedAt, archivedAt: &oldArchivedAt, wantPublishedSet: true, wantArchivedSet: true, preservePub: true, preserveArchived: true},
+		{name: "draft remains draft", from: model.PostStatusDraft, to: model.PostStatusDraft},
+		{name: "draft becomes published", from: model.PostStatusDraft, to: model.PostStatusPublished, wantPublishedSet: true},
+		{name: "draft becomes archived", from: model.PostStatusDraft, to: model.PostStatusArchived, wantArchivedSet: true},
+		{name: "published remains published", from: model.PostStatusPublished, to: model.PostStatusPublished, publishedAt: &oldPublishedAt, wantPublishedSet: true, preservePub: true},
+		{name: "published becomes archived", from: model.PostStatusPublished, to: model.PostStatusArchived, publishedAt: &oldPublishedAt, wantPublishedSet: true, wantArchivedSet: true, preservePub: true},
+		{name: "archived remains archived", from: model.PostStatusArchived, to: model.PostStatusArchived, publishedAt: &oldPublishedAt, archivedAt: &oldArchivedAt, wantPublishedSet: true, wantArchivedSet: true, preservePub: true, preserveArchived: true},
 	}
 
 	for _, tt := range tests {
@@ -315,11 +316,11 @@ func TestService_UpdateStatusTransitionsAndTimestamps(t *testing.T) {
 			current.UpdatedAt = oldTime
 			current.PublishedAt = cloneTime(tt.publishedAt)
 			current.ArchivedAt = cloneTime(tt.archivedAt)
-			var updated *posts.Post
+			var updated *model.Post
 			gomock.InOrder(
 				repo.EXPECT().GetByID(ctx, "post-1").Return(&current, nil),
 				repo.EXPECT().Update(ctx, gomock.Any()).DoAndReturn(
-					func(_ context.Context, got *posts.Post) (*posts.Post, error) {
+					func(_ context.Context, got *model.Post) (*model.Post, error) {
 						updated = clonePostPtr(got)
 						return clonePostPtr(got), nil
 					},
@@ -327,7 +328,7 @@ func TestService_UpdateStatusTransitionsAndTimestamps(t *testing.T) {
 			)
 			start := time.Now().UTC()
 
-			got, err := service.Update(ctx, &posts.Post{
+			got, err := service.Update(ctx, &model.Post{
 				ID: current.ID, Title: "Updated", Slug: "updated", Content: "content", Status: tt.to,
 			})
 			end := time.Now().UTC()
@@ -359,12 +360,12 @@ func TestService_UpdateStatusTransitionsAndTimestamps(t *testing.T) {
 
 func TestService_UpdateRejectsInvalidStatusTransitions(t *testing.T) {
 	for _, tt := range []struct {
-		from posts.PostStatus
-		to   posts.PostStatus
+		from model.PostStatus
+		to   model.PostStatus
 	}{
-		{from: posts.PostStatusPublished, to: posts.PostStatusDraft},
-		{from: posts.PostStatusArchived, to: posts.PostStatusDraft},
-		{from: posts.PostStatusArchived, to: posts.PostStatusPublished},
+		{from: model.PostStatusPublished, to: model.PostStatusDraft},
+		{from: model.PostStatusArchived, to: model.PostStatusDraft},
+		{from: model.PostStatusArchived, to: model.PostStatusPublished},
 	} {
 		t.Run(string(tt.from)+"-to-"+string(tt.to), func(t *testing.T) {
 			repo, service := newService(t)
@@ -372,7 +373,7 @@ func TestService_UpdateRejectsInvalidStatusTransitions(t *testing.T) {
 			current := testPost("post-1", tt.from)
 			repo.EXPECT().GetByID(ctx, "post-1").Return(&current, nil)
 
-			_, err := service.Update(ctx, &posts.Post{
+			_, err := service.Update(ctx, &model.Post{
 				ID: "post-1", Title: "Title", Slug: "title", Status: tt.to,
 			})
 			assertValidationError(t, err, "status")
@@ -381,24 +382,24 @@ func TestService_UpdateRejectsInvalidStatusTransitions(t *testing.T) {
 }
 
 func TestService_UpdateValidation(t *testing.T) {
-	valid := func() *posts.Post {
-		return &posts.Post{ID: "post-1", Title: "Title", Slug: "title", Status: posts.PostStatusDraft}
+	valid := func() *model.Post {
+		return &model.Post{ID: "post-1", Title: "Title", Slug: "title", Status: model.PostStatusDraft}
 	}
 	tests := []struct {
 		name  string
-		post  func() *posts.Post
+		post  func() *model.Post
 		field string
 	}{
-		{name: "nil post", post: func() *posts.Post { return nil }, field: "post"},
-		{name: "blank ID", post: func() *posts.Post { p := valid(); p.ID = " \t "; return p }, field: "id"},
-		{name: "blank title", post: func() *posts.Post { p := valid(); p.Title = "  "; return p }, field: "title"},
-		{name: "title too long", post: func() *posts.Post { p := valid(); p.Title = strings.Repeat("x", posts.MaxTitleLength+1); return p }, field: "title"},
-		{name: "blank slug", post: func() *posts.Post { p := valid(); p.Slug = "  "; return p }, field: "slug"},
-		{name: "invalid slug", post: func() *posts.Post { p := valid(); p.Slug = "not_a_slug"; return p }, field: "slug"},
-		{name: "slug too long", post: func() *posts.Post { p := valid(); p.Slug = strings.Repeat("a", posts.MaxSlugLength+1); return p }, field: "slug"},
-		{name: "content too long", post: func() *posts.Post { p := valid(); p.Content = strings.Repeat("x", posts.MaxContentLength+1); return p }, field: "content"},
-		{name: "status required", post: func() *posts.Post { p := valid(); p.Status = ""; return p }, field: "status"},
-		{name: "unknown status", post: func() *posts.Post { p := valid(); p.Status = "scheduled"; return p }, field: "status"},
+		{name: "nil post", post: func() *model.Post { return nil }, field: "post"},
+		{name: "blank ID", post: func() *model.Post { p := valid(); p.ID = " \t "; return p }, field: "id"},
+		{name: "blank title", post: func() *model.Post { p := valid(); p.Title = "  "; return p }, field: "title"},
+		{name: "title too long", post: func() *model.Post { p := valid(); p.Title = strings.Repeat("x", posts.MaxTitleLength+1); return p }, field: "title"},
+		{name: "blank slug", post: func() *model.Post { p := valid(); p.Slug = "  "; return p }, field: "slug"},
+		{name: "invalid slug", post: func() *model.Post { p := valid(); p.Slug = "not_a_slug"; return p }, field: "slug"},
+		{name: "slug too long", post: func() *model.Post { p := valid(); p.Slug = strings.Repeat("a", posts.MaxSlugLength+1); return p }, field: "slug"},
+		{name: "content too long", post: func() *model.Post { p := valid(); p.Content = strings.Repeat("x", posts.MaxContentLength+1); return p }, field: "content"},
+		{name: "status required", post: func() *model.Post { p := valid(); p.Status = ""; return p }, field: "status"},
+		{name: "unknown status", post: func() *model.Post { p := valid(); p.Status = "scheduled"; return p }, field: "status"},
 	}
 
 	for _, tt := range tests {
@@ -415,8 +416,8 @@ func TestService_UpdateReturnsNotFound(t *testing.T) {
 	ctx := context.Background()
 	repo.EXPECT().GetByID(ctx, "missing").Return(nil, posts.ErrNotFound)
 
-	_, err := service.Update(ctx, &posts.Post{
-		ID: "missing", Title: "Title", Slug: "title", Status: posts.PostStatusDraft,
+	_, err := service.Update(ctx, &model.Post{
+		ID: "missing", Title: "Title", Slug: "title", Status: model.PostStatusDraft,
 	})
 	require.ErrorIs(t, err, posts.ErrNotFound)
 }
@@ -427,8 +428,8 @@ func TestService_UpdateReturnsLookupError(t *testing.T) {
 	repoErr := errors.New("lookup failed")
 	repo.EXPECT().GetByID(ctx, "post-1").Return(nil, repoErr)
 
-	_, err := service.Update(ctx, &posts.Post{
-		ID: "post-1", Title: "Title", Slug: "title", Status: posts.PostStatusDraft,
+	_, err := service.Update(ctx, &model.Post{
+		ID: "post-1", Title: "Title", Slug: "title", Status: model.PostStatusDraft,
 	})
 	require.ErrorIs(t, err, repoErr)
 }
@@ -436,15 +437,15 @@ func TestService_UpdateReturnsLookupError(t *testing.T) {
 func TestService_UpdateReturnsRepositoryError(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
-	current := testPost("post-1", posts.PostStatusDraft)
+	current := testPost("post-1", model.PostStatusDraft)
 	repoErr := errors.New("update failed")
 	gomock.InOrder(
 		repo.EXPECT().GetByID(ctx, "post-1").Return(&current, nil),
 		repo.EXPECT().Update(ctx, gomock.Any()).Return(nil, repoErr),
 	)
 
-	_, err := service.Update(ctx, &posts.Post{
-		ID: "post-1", Title: "Title", Slug: "title", Status: posts.PostStatusDraft,
+	_, err := service.Update(ctx, &model.Post{
+		ID: "post-1", Title: "Title", Slug: "title", Status: model.PostStatusDraft,
 	})
 	require.ErrorIs(t, err, repoErr)
 }
@@ -486,30 +487,30 @@ func assertValidationError(t *testing.T, err error, field string) {
 	assert.Equal(t, field, validationErr.Field)
 }
 
-func testPost(id string, status posts.PostStatus) posts.Post {
+func testPost(id string, status model.PostStatus) model.Post {
 	now := time.Now().UTC().Add(-time.Hour)
-	post := posts.Post{
+	post := model.Post{
 		ID: id, Title: "Title " + id, Slug: "title-" + strings.ToLower(id),
 		Content: "content", Status: status, CreatedAt: now, UpdatedAt: now,
 	}
-	if status == posts.PostStatusPublished || status == posts.PostStatusArchived {
+	if status == model.PostStatusPublished || status == model.PostStatusArchived {
 		publishedAt := now.Add(time.Minute)
 		post.PublishedAt = &publishedAt
 	}
-	if status == posts.PostStatusArchived {
+	if status == model.PostStatusArchived {
 		archivedAt := now.Add(2 * time.Minute)
 		post.ArchivedAt = &archivedAt
 	}
 	return post
 }
 
-func clonePost(post posts.Post) posts.Post {
+func clonePost(post model.Post) model.Post {
 	post.PublishedAt = cloneTime(post.PublishedAt)
 	post.ArchivedAt = cloneTime(post.ArchivedAt)
 	return post
 }
 
-func clonePostPtr(post *posts.Post) *posts.Post {
+func clonePostPtr(post *model.Post) *model.Post {
 	if post == nil {
 		return nil
 	}

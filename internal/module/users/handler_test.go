@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"tinyfold/internal/model"
 	"tinyfold/internal/module/users"
 	usersMock "tinyfold/internal/module/users/mock"
 )
@@ -39,8 +40,8 @@ func serve(handler http.Handler, method, target string, body io.Reader) *httptes
 func TestHandler_Create(t *testing.T) {
 	service := usersMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	input := &users.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe", Bio: "bio"}
-	created := &users.User{ID: "user-1", Username: input.Username, Email: input.Email, DisplayName: input.DisplayName, Bio: input.Bio}
+	input := &model.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe", Bio: "bio"}
+	created := &model.User{ID: "user-1", Username: input.Username, Email: input.Email, DisplayName: input.DisplayName, Bio: input.Bio}
 	service.EXPECT().Create(gomock.Any(), input).Return(created, nil)
 
 	response := serve(handler, http.MethodPost, "/users", jsonBody(t, input))
@@ -70,7 +71,7 @@ func TestHandler_CreateMapsServiceErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := usersMock.NewMockService(gomock.NewController(t))
 			handler := handlerForTest(t, service)
-			input := &users.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe"}
+			input := &model.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe"}
 			service.EXPECT().Create(gomock.Any(), input).Return(nil, tt.err)
 
 			response := serve(handler, http.MethodPost, "/users", jsonBody(t, input))
@@ -83,7 +84,7 @@ func TestHandler_CreateMapsServiceErrors(t *testing.T) {
 func TestHandler_GetMany(t *testing.T) {
 	service := usersMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	want := []users.User{{ID: "user-1", Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe"}}
+	want := []model.User{{ID: "user-1", Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe"}}
 	service.EXPECT().GetMany(gomock.Any()).Return(want, nil)
 
 	response := serve(handler, http.MethodGet, "/users", nil)
@@ -113,7 +114,7 @@ func TestHandler_GetManyMapsServiceError(t *testing.T) {
 func TestHandler_GetByID(t *testing.T) {
 	service := usersMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	want := &users.User{ID: "user-1", Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe"}
+	want := &model.User{ID: "user-1", Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane Doe"}
 	service.EXPECT().GetByID(gomock.Any(), "user-1").Return(want, nil)
 
 	response := serve(handler, http.MethodGet, "/users/user-1", nil)
@@ -135,9 +136,9 @@ func TestHandler_GetByIDReturnsNotFound(t *testing.T) {
 func TestHandler_Update(t *testing.T) {
 	service := usersMock.NewMockService(gomock.NewController(t))
 	handler := handlerForTest(t, service)
-	input := &users.User{Username: "jane-doe-2", Email: "jane2@example.com", DisplayName: "Jane Updated", Bio: "bio"}
-	updated := &users.User{ID: "user-1", Username: input.Username, Email: input.Email, DisplayName: input.DisplayName, Bio: input.Bio}
-	service.EXPECT().Update(gomock.Any(), gomock.Cond(func(got *users.User) bool {
+	input := &model.User{Username: "jane-doe-2", Email: "jane2@example.com", DisplayName: "Jane Updated", Bio: "bio"}
+	updated := &model.User{ID: "user-1", Username: input.Username, Email: input.Email, DisplayName: input.DisplayName, Bio: input.Bio}
+	service.EXPECT().Update(gomock.Any(), gomock.Cond(func(got *model.User) bool {
 		return got.ID == "user-1" && got.Username == input.Username && got.Email == input.Email && got.DisplayName == input.DisplayName && got.Bio == input.Bio
 	})).Return(updated, nil)
 
@@ -184,7 +185,7 @@ func jsonBody(t *testing.T, value any) *bytes.Reader {
 	return bytes.NewReader(body)
 }
 
-func assertUserResponse(t *testing.T, response *httptest.ResponseRecorder, want *users.User) {
+func assertUserResponse(t *testing.T, response *httptest.ResponseRecorder, want *model.User) {
 	t.Helper()
 	var body struct {
 		Data *users.UserResponse `json:"data"`

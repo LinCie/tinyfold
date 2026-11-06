@@ -13,6 +13,7 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 
 	"tinyfold/internal/database"
+	"tinyfold/internal/model"
 	"tinyfold/internal/module/users"
 )
 
@@ -40,13 +41,13 @@ func TestSQLiteRepository_Create(t *testing.T) {
 	_, repo := newSQLiteRepository(t)
 	ctx := context.Background()
 	start := time.Now().UTC().Add(-time.Second)
-	input := &users.User{
+	input := &model.User{
 		Username:    "jane-doe",
 		Email:       "jane@example.com",
 		DisplayName: "Jane O'Brien; --",
 		Bio:         "CMS author bio",
-		Role:        users.UserRoleAuthor,
-		Status:      users.UserStatusInvited,
+		Role:        model.UserRoleAuthor,
+		Status:      model.UserStatusInvited,
 	}
 
 	got, err := repo.Create(ctx, input)
@@ -83,35 +84,35 @@ func TestSQLiteRepository_CreateRejectsNilUser(t *testing.T) {
 func TestSQLiteRepository_CreateRejectsDatabaseConstraintViolations(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
-		mutate func(*users.User)
+		mutate func(*model.User)
 	}{
 		{
 			name: "blank username",
-			mutate: func(user *users.User) {
+			mutate: func(user *model.User) {
 				user.Username = ""
 			},
 		},
 		{
 			name: "blank email",
-			mutate: func(user *users.User) {
+			mutate: func(user *model.User) {
 				user.Email = ""
 			},
 		},
 		{
 			name: "blank display name",
-			mutate: func(user *users.User) {
+			mutate: func(user *model.User) {
 				user.DisplayName = ""
 			},
 		},
 		{
 			name: "unknown role",
-			mutate: func(user *users.User) {
+			mutate: func(user *model.User) {
 				user.Role = "superadmin"
 			},
 		},
 		{
 			name: "unknown status",
-			mutate: func(user *users.User) {
+			mutate: func(user *model.User) {
 				user.Status = "archived"
 			},
 		},
@@ -131,7 +132,7 @@ func TestSQLiteRepository_CreateRejectsDatabaseConstraintViolations(t *testing.T
 
 func TestSQLiteRepository_CreateRejectsDuplicateUsername(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	insertUser(t, db, userFixture("existing", "duplicate-user", users.UserRoleAuthor, users.UserStatusInvited))
+	insertUser(t, db, userFixture("existing", "duplicate-user", model.UserRoleAuthor, model.UserStatusInvited))
 
 	got, err := repo.Create(context.Background(), validInvitedUser("duplicate-user"))
 
@@ -141,7 +142,7 @@ func TestSQLiteRepository_CreateRejectsDuplicateUsername(t *testing.T) {
 
 func TestSQLiteRepository_CreateRejectsDuplicateEmail(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	existing := userFixture("existing", "existing-user", users.UserRoleAuthor, users.UserStatusInvited)
+	existing := userFixture("existing", "existing-user", model.UserRoleAuthor, model.UserStatusInvited)
 	insertUser(t, db, existing)
 
 	input := validInvitedUser("another-user")
@@ -155,7 +156,7 @@ func TestSQLiteRepository_CreateRejectsDuplicateEmail(t *testing.T) {
 
 func TestSQLiteRepository_GetByID(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	want := userFixture("user-1", "first-user", users.UserRoleEditor, users.UserStatusActive)
+	want := userFixture("user-1", "first-user", model.UserRoleEditor, model.UserStatusActive)
 	insertUser(t, db, want)
 
 	got, err := repo.GetByID(context.Background(), want.ID)
@@ -176,8 +177,8 @@ func TestSQLiteRepository_GetByIDNotFound(t *testing.T) {
 
 func TestSQLiteRepository_GetMany(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	first := userFixture("user-1", "first-user", users.UserRoleAuthor, users.UserStatusInvited)
-	second := userFixture("user-2", "second-user", users.UserRoleAdmin, users.UserStatusDisabled)
+	first := userFixture("user-1", "first-user", model.UserRoleAuthor, model.UserStatusInvited)
+	second := userFixture("user-2", "second-user", model.UserRoleAdmin, model.UserStatusDisabled)
 	insertUser(t, db, first)
 	insertUser(t, db, second)
 
@@ -185,7 +186,7 @@ func TestSQLiteRepository_GetMany(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, got, 2)
-	byID := make(map[string]users.User, len(got))
+	byID := make(map[string]model.User, len(got))
 	for _, user := range got {
 		byID[user.ID] = user
 	}
@@ -206,17 +207,17 @@ func TestSQLiteRepository_GetManyEmpty(t *testing.T) {
 
 func TestSQLiteRepository_Update(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	original := userFixture("user-1", "first-user", users.UserRoleAuthor, users.UserStatusInvited)
+	original := userFixture("user-1", "first-user", model.UserRoleAuthor, model.UserStatusInvited)
 	insertUser(t, db, original)
 
-	updated := users.User{
+	updated := model.User{
 		ID:          original.ID,
 		Username:    "updated-user",
 		Email:       "updated@example.com",
 		DisplayName: "Updated Name",
 		Bio:         "Updated bio",
-		Role:        users.UserRoleEditor,
-		Status:      users.UserStatusActive,
+		Role:        model.UserRoleEditor,
+		Status:      model.UserStatusActive,
 		CreatedAt:   original.CreatedAt,
 		UpdatedAt:   time.Date(2025, time.March, 5, 6, 7, 8, 0, time.UTC),
 	}
@@ -235,7 +236,7 @@ func TestSQLiteRepository_Update(t *testing.T) {
 
 func TestSQLiteRepository_UpdateNotFound(t *testing.T) {
 	_, repo := newSQLiteRepository(t)
-	missing := userFixture("missing", "missing-user", users.UserRoleAuthor, users.UserStatusInvited)
+	missing := userFixture("missing", "missing-user", model.UserRoleAuthor, model.UserStatusInvited)
 
 	got, err := repo.Update(context.Background(), &missing)
 
@@ -254,7 +255,7 @@ func TestSQLiteRepository_UpdateRejectsNilUser(t *testing.T) {
 
 func TestSQLiteRepository_Delete(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	user := userFixture("user-1", "first-user", users.UserRoleAuthor, users.UserStatusInvited)
+	user := userFixture("user-1", "first-user", model.UserRoleAuthor, model.UserStatusInvited)
 	insertUser(t, db, user)
 
 	err := repo.Delete(context.Background(), user.ID)
@@ -275,19 +276,19 @@ func TestSQLiteRepository_PropagatesCanceledContext(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func validInvitedUser(username string) *users.User {
-	return &users.User{
+func validInvitedUser(username string) *model.User {
+	return &model.User{
 		Username:    username,
 		Email:       username + "@example.com",
 		DisplayName: "Display " + username,
 		Bio:         "Bio for " + username,
-		Role:        users.UserRoleAuthor,
-		Status:      users.UserStatusInvited,
+		Role:        model.UserRoleAuthor,
+		Status:      model.UserStatusInvited,
 	}
 }
 
-func userFixture(id, username string, role users.UserRole, status users.UserStatus) users.User {
-	return users.User{
+func userFixture(id, username string, role model.UserRole, status model.UserStatus) model.User {
+	return model.User{
 		ID:          id,
 		Username:    username,
 		Email:       username + "@example.com",
@@ -300,7 +301,7 @@ func userFixture(id, username string, role users.UserRole, status users.UserStat
 	}
 }
 
-func insertUser(t *testing.T, db *sqlx.DB, user users.User) {
+func insertUser(t *testing.T, db *sqlx.DB, user model.User) {
 	t.Helper()
 
 	_, err := db.ExecContext(
@@ -329,7 +330,7 @@ func requireSQLiteConstraintError(t *testing.T, err error) {
 	assert.Equal(t, sqlite3.SQLITE_CONSTRAINT, sqliteErr.Code()&0xff)
 }
 
-func assertUserEqual(t *testing.T, want, got users.User) {
+func assertUserEqual(t *testing.T, want, got model.User) {
 	t.Helper()
 
 	assert.Equal(t, want.ID, got.ID)

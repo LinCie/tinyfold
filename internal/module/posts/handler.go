@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"tinyfold/internal/model"
 	"tinyfold/internal/pkg/httpx"
 )
 
@@ -18,7 +19,7 @@ func NewHandler(service Service) *Handler {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	var post Post
+	var post model.Post
 	if !httpx.DecodeJSON(w, r, &post) {
 		return
 	}
@@ -54,7 +55,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	var post Post
+	var post model.Post
 	if !httpx.DecodeJSON(w, r, &post) {
 		return
 	}

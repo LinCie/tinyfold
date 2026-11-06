@@ -12,7 +12,7 @@ package mock
 import (
 	context "context"
 	reflect "reflect"
-	posts "tinyfold/internal/module/posts"
+	model "tinyfold/internal/model"
 
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,10 +42,10 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockService) Create(ctx context.Context, post *posts.Post) (*posts.Post, error) {
+func (m *MockService) Create(ctx context.Context, post *model.Post) (*model.Post, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, post)
-	ret0, _ := ret[0].(*posts.Post)
+	ret0, _ := ret[0].(*model.Post)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -71,10 +71,10 @@ func (mr *MockServiceMockRecorder) Delete(ctx, id any) *gomock.Call {
 }
 
 // GetByID mocks base method.
-func (m *MockService) GetByID(ctx context.Context, id string) (*posts.Post, error) {
+func (m *MockService) GetByID(ctx context.Context, id string) (*model.Post, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByID", ctx, id)
-	ret0, _ := ret[0].(*posts.Post)
+	ret0, _ := ret[0].(*model.Post)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -86,10 +86,10 @@ func (mr *MockServiceMockRecorder) GetByID(ctx, id any) *gomock.Call {
 }
 
 // GetMany mocks base method.
-func (m *MockService) GetMany(ctx context.Context) ([]posts.Post, error) {
+func (m *MockService) GetMany(ctx context.Context) ([]model.Post, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMany", ctx)
-	ret0, _ := ret[0].([]posts.Post)
+	ret0, _ := ret[0].([]model.Post)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -101,10 +101,10 @@ func (mr *MockServiceMockRecorder) GetMany(ctx any) *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockService) Update(ctx context.Context, post *posts.Post) (*posts.Post, error) {
+func (m *MockService) Update(ctx context.Context, post *model.Post) (*model.Post, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", ctx, post)
-	ret0, _ := ret[0].(*posts.Post)
+	ret0, _ := ret[0].(*model.Post)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

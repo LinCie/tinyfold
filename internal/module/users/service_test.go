@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"tinyfold/internal/model"
 	"tinyfold/internal/module/users"
 	usersMock "tinyfold/internal/module/users/mock"
 )
@@ -25,26 +26,26 @@ func newService(t *testing.T) (*usersMock.MockRepository, users.Service) {
 func TestService_Create(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
-		role       users.UserRole
-		status     users.UserStatus
-		wantRole   users.UserRole
-		wantStatus users.UserStatus
+		role       model.UserRole
+		status     model.UserStatus
+		wantRole   model.UserRole
+		wantStatus model.UserStatus
 	}{
-		{name: "defaults empty role and status", wantRole: users.UserRoleAuthor, wantStatus: users.UserStatusInvited},
-		{name: "accepts explicit author invited", role: users.UserRoleAuthor, status: users.UserStatusInvited, wantRole: users.UserRoleAuthor, wantStatus: users.UserStatusInvited},
-		{name: "accepts editor invited", role: users.UserRoleEditor, status: users.UserStatusInvited, wantRole: users.UserRoleEditor, wantStatus: users.UserStatusInvited},
-		{name: "accepts admin invited", role: users.UserRoleAdmin, status: users.UserStatusInvited, wantRole: users.UserRoleAdmin, wantStatus: users.UserStatusInvited},
+		{name: "defaults empty role and status", wantRole: model.UserRoleAuthor, wantStatus: model.UserStatusInvited},
+		{name: "accepts explicit author invited", role: model.UserRoleAuthor, status: model.UserStatusInvited, wantRole: model.UserRoleAuthor, wantStatus: model.UserStatusInvited},
+		{name: "accepts editor invited", role: model.UserRoleEditor, status: model.UserStatusInvited, wantRole: model.UserRoleEditor, wantStatus: model.UserStatusInvited},
+		{name: "accepts admin invited", role: model.UserRoleAdmin, status: model.UserStatusInvited, wantRole: model.UserRoleAdmin, wantStatus: model.UserStatusInvited},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, service := newService(t)
 			ctx := context.Background()
-			input := &users.User{
+			input := &model.User{
 				Username: "  jane-doe  ", Email: "  Jane@Example.COM  ",
 				DisplayName: "  Jane Doe  ", Bio: "author bio",
 				Role: tt.role, Status: tt.status,
 			}
 			original := cloneUser(*input)
-			persisted := &users.User{
+			persisted := &model.User{
 				ID: "user-1", Username: "jane-doe", Email: "jane@example.com",
 				DisplayName: "Jane Doe", Bio: "author bio",
 				Role: tt.wantRole, Status: tt.wantStatus,
@@ -53,7 +54,7 @@ func TestService_Create(t *testing.T) {
 			persisted.UpdatedAt = persisted.CreatedAt
 
 			repo.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(
-				func(_ context.Context, got *users.User) (*users.User, error) {
+				func(_ context.Context, got *model.User) (*model.User, error) {
 					assert.Equal(t, "jane-doe", got.Username, "repository should receive a trimmed username")
 					assert.Equal(t, "jane@example.com", got.Email, "repository should receive a trimmed lowercased email")
 					assert.Equal(t, "Jane Doe", got.DisplayName, "repository should receive a trimmed display name")
@@ -76,21 +77,21 @@ func TestService_CreateIgnoresClientManagedMetadata(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
 	clientTime := time.Date(2040, 1, 2, 3, 4, 5, 0, time.UTC)
-	input := &users.User{
+	input := &model.User{
 		ID: "client-id", Username: "jane-doe", Email: "jane@example.com",
-		DisplayName: "Jane", Role: users.UserRoleAuthor, Status: users.UserStatusInvited,
+		DisplayName: "Jane", Role: model.UserRoleAuthor, Status: model.UserStatusInvited,
 		CreatedAt: clientTime, UpdatedAt: clientTime,
 	}
 	original := cloneUser(*input)
-	persisted := &users.User{
+	persisted := &model.User{
 		ID: "generated-id", Username: "jane-doe", Email: "jane@example.com",
-		DisplayName: "Jane", Role: users.UserRoleAuthor, Status: users.UserStatusInvited,
+		DisplayName: "Jane", Role: model.UserRoleAuthor, Status: model.UserStatusInvited,
 		CreatedAt: time.Now().UTC(),
 	}
 	persisted.UpdatedAt = persisted.CreatedAt
 
 	repo.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(
-		func(_ context.Context, got *users.User) (*users.User, error) {
+		func(_ context.Context, got *model.User) (*model.User, error) {
 			assert.Empty(t, got.ID)
 			assert.Zero(t, got.CreatedAt)
 			assert.Zero(t, got.UpdatedAt)
@@ -105,39 +106,51 @@ func TestService_CreateIgnoresClientManagedMetadata(t *testing.T) {
 }
 
 func TestService_CreateValidation(t *testing.T) {
-	valid := func() *users.User {
-		return &users.User{
+	valid := func() *model.User {
+		return &model.User{
 			Username: "jane-doe", Email: "jane@example.com",
-			DisplayName: "Jane Doe", Role: users.UserRoleAuthor, Status: users.UserStatusInvited,
+			DisplayName: "Jane Doe", Role: model.UserRoleAuthor, Status: model.UserStatusInvited,
 		}
 	}
 	tests := []struct {
-		name string
-		user func() *users.User
+		name  string
+		user  func() *model.User
 		field string
 	}{
-		{name: "nil user", user: func() *users.User { return nil }, field: "user"},
-		{name: "blank username", user: func() *users.User { p := valid(); p.Username = " \t\n "; return p }, field: "username"},
-		{name: "username too long", user: func() *users.User { p := valid(); p.Username = strings.Repeat("a", users.MaxUsernameLength+1); return p }, field: "username"},
-		{name: "uppercase username", user: func() *users.User { p := valid(); p.Username = "Jane"; return p }, field: "username"},
-		{name: "spaces in username", user: func() *users.User { p := valid(); p.Username = "jane doe"; return p }, field: "username"},
-		{name: "leading hyphen", user: func() *users.User { p := valid(); p.Username = "-jane"; return p }, field: "username"},
-		{name: "trailing hyphen", user: func() *users.User { p := valid(); p.Username = "jane-"; return p }, field: "username"},
-		{name: "repeated hyphen", user: func() *users.User { p := valid(); p.Username = "jane--doe"; return p }, field: "username"},
-		{name: "underscore in username", user: func() *users.User { p := valid(); p.Username = "jane_doe"; return p }, field: "username"},
-		{name: "non-ascii username", user: func() *users.User { p := valid(); p.Username = "café"; return p }, field: "username"},
-		{name: "blank email", user: func() *users.User { p := valid(); p.Email = "  "; return p }, field: "email"},
-		{name: "email without at", user: func() *users.User { p := valid(); p.Email = "jane.example.com"; return p }, field: "email"},
-		{name: "email without domain dot", user: func() *users.User { p := valid(); p.Email = "jane@localhost"; return p }, field: "email"},
-		{name: "email with space", user: func() *users.User { p := valid(); p.Email = "jane @example.com"; return p }, field: "email"},
-		{name: "email too long", user: func() *users.User { p := valid(); p.Email = strings.Repeat("a", users.MaxEmailLength) + "@example.com"; return p }, field: "email"},
-		{name: "blank display name", user: func() *users.User { p := valid(); p.DisplayName = " \t\n "; return p }, field: "display_name"},
-		{name: "display name too long", user: func() *users.User { p := valid(); p.DisplayName = strings.Repeat("x", users.MaxDisplayNameLength+1); return p }, field: "display_name"},
-		{name: "bio too long", user: func() *users.User { p := valid(); p.Bio = strings.Repeat("x", users.MaxBioLength+1); return p }, field: "bio"},
-		{name: "cannot create active user", user: func() *users.User { p := valid(); p.Status = users.UserStatusActive; return p }, field: "status"},
-		{name: "cannot create disabled user", user: func() *users.User { p := valid(); p.Status = users.UserStatusDisabled; return p }, field: "status"},
-		{name: "unknown status", user: func() *users.User { p := valid(); p.Status = "archived"; return p }, field: "status"},
-		{name: "unknown role", user: func() *users.User { p := valid(); p.Role = "superadmin"; return p }, field: "role"},
+		{name: "nil user", user: func() *model.User { return nil }, field: "user"},
+		{name: "blank username", user: func() *model.User { p := valid(); p.Username = " \t\n "; return p }, field: "username"},
+		{name: "username too long", user: func() *model.User {
+			p := valid()
+			p.Username = strings.Repeat("a", users.MaxUsernameLength+1)
+			return p
+		}, field: "username"},
+		{name: "uppercase username", user: func() *model.User { p := valid(); p.Username = "Jane"; return p }, field: "username"},
+		{name: "spaces in username", user: func() *model.User { p := valid(); p.Username = "jane doe"; return p }, field: "username"},
+		{name: "leading hyphen", user: func() *model.User { p := valid(); p.Username = "-jane"; return p }, field: "username"},
+		{name: "trailing hyphen", user: func() *model.User { p := valid(); p.Username = "jane-"; return p }, field: "username"},
+		{name: "repeated hyphen", user: func() *model.User { p := valid(); p.Username = "jane--doe"; return p }, field: "username"},
+		{name: "underscore in username", user: func() *model.User { p := valid(); p.Username = "jane_doe"; return p }, field: "username"},
+		{name: "non-ascii username", user: func() *model.User { p := valid(); p.Username = "café"; return p }, field: "username"},
+		{name: "blank email", user: func() *model.User { p := valid(); p.Email = "  "; return p }, field: "email"},
+		{name: "email without at", user: func() *model.User { p := valid(); p.Email = "jane.example.com"; return p }, field: "email"},
+		{name: "email without domain dot", user: func() *model.User { p := valid(); p.Email = "jane@localhost"; return p }, field: "email"},
+		{name: "email with space", user: func() *model.User { p := valid(); p.Email = "jane @example.com"; return p }, field: "email"},
+		{name: "email too long", user: func() *model.User {
+			p := valid()
+			p.Email = strings.Repeat("a", users.MaxEmailLength) + "@example.com"
+			return p
+		}, field: "email"},
+		{name: "blank display name", user: func() *model.User { p := valid(); p.DisplayName = " \t\n "; return p }, field: "display_name"},
+		{name: "display name too long", user: func() *model.User {
+			p := valid()
+			p.DisplayName = strings.Repeat("x", users.MaxDisplayNameLength+1)
+			return p
+		}, field: "display_name"},
+		{name: "bio too long", user: func() *model.User { p := valid(); p.Bio = strings.Repeat("x", users.MaxBioLength+1); return p }, field: "bio"},
+		{name: "cannot create active user", user: func() *model.User { p := valid(); p.Status = model.UserStatusActive; return p }, field: "status"},
+		{name: "cannot create disabled user", user: func() *model.User { p := valid(); p.Status = model.UserStatusDisabled; return p }, field: "status"},
+		{name: "unknown status", user: func() *model.User { p := valid(); p.Status = "archived"; return p }, field: "status"},
+		{name: "unknown role", user: func() *model.User { p := valid(); p.Role = "superadmin"; return p }, field: "role"},
 	}
 
 	for _, tt := range tests {
@@ -152,19 +165,19 @@ func TestService_CreateValidation(t *testing.T) {
 func TestService_CreateAcceptsFieldBoundaries(t *testing.T) {
 	for _, tt := range []struct {
 		name string
-		user *users.User
+		user *model.User
 	}{
 		{
 			name: "username at max length",
-			user: &users.User{Username: strings.Repeat("a", users.MaxUsernameLength), Email: "a@example.com", DisplayName: "Name"},
+			user: &model.User{Username: strings.Repeat("a", users.MaxUsernameLength), Email: "a@example.com", DisplayName: "Name"},
 		},
 		{
 			name: "display name at max runes",
-			user: &users.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: strings.Repeat("é", users.MaxDisplayNameLength)},
+			user: &model.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: strings.Repeat("é", users.MaxDisplayNameLength)},
 		},
 		{
 			name: "bio at one mebibyte",
-			user: &users.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane", Bio: strings.Repeat("x", users.MaxBioLength)},
+			user: &model.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane", Bio: strings.Repeat("x", users.MaxBioLength)},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -182,14 +195,14 @@ func TestService_CreateReturnsRepositoryError(t *testing.T) {
 	repoErr := errors.New("duplicate email")
 	repo.EXPECT().Create(ctx, gomock.Any()).Return(nil, repoErr)
 
-	_, err := service.Create(ctx, &users.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane"})
+	_, err := service.Create(ctx, &model.User{Username: "jane-doe", Email: "jane@example.com", DisplayName: "Jane"})
 	require.ErrorIs(t, err, repoErr)
 }
 
 func TestService_GetMany(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
-	want := []users.User{testUser("user-1", users.UserStatusInvited), testUser("user-2", users.UserStatusActive)}
+	want := []model.User{testUser("user-1", model.UserStatusInvited), testUser("user-2", model.UserStatusActive)}
 	repo.EXPECT().GetMany(ctx).Return(want, nil)
 
 	got, err := service.GetMany(ctx)
@@ -219,7 +232,7 @@ func TestService_GetManyReturnsRepositoryError(t *testing.T) {
 func TestService_GetByID(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
-	want := testUser("user-1", users.UserStatusInvited)
+	want := testUser("user-1", model.UserStatusInvited)
 	repo.EXPECT().GetByID(ctx, "user-1").Return(&want, nil)
 
 	got, err := service.GetByID(ctx, " user-1 ")
@@ -263,24 +276,24 @@ func TestService_UpdateActivatesInvitedAndPreservesManagedFields(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
 	createdAt := time.Now().UTC().Add(-24 * time.Hour)
-	current := users.User{
+	current := model.User{
 		ID: "user-1", Username: "jane-doe", Email: "jane@example.com",
-		DisplayName: "Before", Bio: "old bio", Role: users.UserRoleAuthor, Status: users.UserStatusInvited,
+		DisplayName: "Before", Bio: "old bio", Role: model.UserRoleAuthor, Status: model.UserStatusInvited,
 		CreatedAt: createdAt, UpdatedAt: createdAt.Add(time.Hour),
 	}
 	clientTimestamp := time.Now().UTC().Add(24 * time.Hour)
-	input := &users.User{
+	input := &model.User{
 		ID: " user-1 ", Username: "  jane-doe-2  ", Email: "  JANE2@Example.COM  ",
-		DisplayName: "  After  ", Bio: "new bio", Role: users.UserRoleEditor, Status: users.UserStatusActive,
+		DisplayName: "  After  ", Bio: "new bio", Role: model.UserRoleEditor, Status: model.UserStatusActive,
 		CreatedAt: clientTimestamp, UpdatedAt: clientTimestamp,
 	}
 	original := cloneUser(*input)
-	var updated *users.User
+	var updated *model.User
 
 	gomock.InOrder(
 		repo.EXPECT().GetByID(ctx, "user-1").Return(&current, nil),
 		repo.EXPECT().Update(ctx, gomock.Any()).DoAndReturn(
-			func(_ context.Context, got *users.User) (*users.User, error) {
+			func(_ context.Context, got *model.User) (*model.User, error) {
 				updated = cloneUserPtr(got)
 				return cloneUserPtr(got), nil
 			},
@@ -298,8 +311,8 @@ func TestService_UpdateActivatesInvitedAndPreservesManagedFields(t *testing.T) {
 	assert.Equal(t, "jane2@example.com", got.Email)
 	assert.Equal(t, "After", got.DisplayName)
 	assert.Equal(t, "new bio", got.Bio)
-	assert.Equal(t, users.UserRoleEditor, got.Role)
-	assert.Equal(t, users.UserStatusActive, got.Status)
+	assert.Equal(t, model.UserRoleEditor, got.Role)
+	assert.Equal(t, model.UserStatusActive, got.Status)
 	assert.Equal(t, createdAt, got.CreatedAt)
 	assert.True(t, !got.UpdatedAt.Before(start) && !got.UpdatedAt.After(end), "UpdatedAt = %v, want a timestamp between %v and %v", got.UpdatedAt, start, end)
 	assert.Equal(t, original, *input, "Update() should not mutate input")
@@ -308,16 +321,16 @@ func TestService_UpdateActivatesInvitedAndPreservesManagedFields(t *testing.T) {
 func TestService_UpdateStatusTransitions(t *testing.T) {
 	tests := []struct {
 		name string
-		from users.UserStatus
-		to   users.UserStatus
+		from model.UserStatus
+		to   model.UserStatus
 	}{
-		{name: "invited remains invited", from: users.UserStatusInvited, to: users.UserStatusInvited},
-		{name: "invited becomes active", from: users.UserStatusInvited, to: users.UserStatusActive},
-		{name: "invited becomes disabled", from: users.UserStatusInvited, to: users.UserStatusDisabled},
-		{name: "active remains active", from: users.UserStatusActive, to: users.UserStatusActive},
-		{name: "active becomes disabled", from: users.UserStatusActive, to: users.UserStatusDisabled},
-		{name: "disabled remains disabled", from: users.UserStatusDisabled, to: users.UserStatusDisabled},
-		{name: "disabled becomes active", from: users.UserStatusDisabled, to: users.UserStatusActive},
+		{name: "invited remains invited", from: model.UserStatusInvited, to: model.UserStatusInvited},
+		{name: "invited becomes active", from: model.UserStatusInvited, to: model.UserStatusActive},
+		{name: "invited becomes disabled", from: model.UserStatusInvited, to: model.UserStatusDisabled},
+		{name: "active remains active", from: model.UserStatusActive, to: model.UserStatusActive},
+		{name: "active becomes disabled", from: model.UserStatusActive, to: model.UserStatusDisabled},
+		{name: "disabled remains disabled", from: model.UserStatusDisabled, to: model.UserStatusDisabled},
+		{name: "disabled becomes active", from: model.UserStatusDisabled, to: model.UserStatusActive},
 	}
 
 	for _, tt := range tests {
@@ -325,11 +338,11 @@ func TestService_UpdateStatusTransitions(t *testing.T) {
 			repo, service := newService(t)
 			ctx := context.Background()
 			current := testUser("user-1", tt.from)
-			var updated *users.User
+			var updated *model.User
 			gomock.InOrder(
 				repo.EXPECT().GetByID(ctx, "user-1").Return(&current, nil),
 				repo.EXPECT().Update(ctx, gomock.Any()).DoAndReturn(
-					func(_ context.Context, got *users.User) (*users.User, error) {
+					func(_ context.Context, got *model.User) (*model.User, error) {
 						updated = cloneUserPtr(got)
 						return cloneUserPtr(got), nil
 					},
@@ -337,9 +350,9 @@ func TestService_UpdateStatusTransitions(t *testing.T) {
 			)
 			start := time.Now().UTC()
 
-			got, err := service.Update(ctx, &users.User{
+			got, err := service.Update(ctx, &model.User{
 				ID: current.ID, Username: "jane-doe", Email: "jane@example.com",
-				DisplayName: "Updated", Bio: "bio", Role: users.UserRoleAuthor, Status: tt.to,
+				DisplayName: "Updated", Bio: "bio", Role: model.UserRoleAuthor, Status: tt.to,
 			})
 			end := time.Now().UTC()
 			require.NoError(t, err)
@@ -354,11 +367,11 @@ func TestService_UpdateStatusTransitions(t *testing.T) {
 
 func TestService_UpdateRejectsInvalidStatusTransitions(t *testing.T) {
 	for _, tt := range []struct {
-		from users.UserStatus
-		to   users.UserStatus
+		from model.UserStatus
+		to   model.UserStatus
 	}{
-		{from: users.UserStatusActive, to: users.UserStatusInvited},
-		{from: users.UserStatusDisabled, to: users.UserStatusInvited},
+		{from: model.UserStatusActive, to: model.UserStatusInvited},
+		{from: model.UserStatusDisabled, to: model.UserStatusInvited},
 	} {
 		t.Run(string(tt.from)+"-to-"+string(tt.to), func(t *testing.T) {
 			repo, service := newService(t)
@@ -366,9 +379,9 @@ func TestService_UpdateRejectsInvalidStatusTransitions(t *testing.T) {
 			current := testUser("user-1", tt.from)
 			repo.EXPECT().GetByID(ctx, "user-1").Return(&current, nil)
 
-			_, err := service.Update(ctx, &users.User{
+			_, err := service.Update(ctx, &model.User{
 				ID: "user-1", Username: "jane-doe", Email: "jane@example.com",
-				DisplayName: "Jane", Role: users.UserRoleAuthor, Status: tt.to,
+				DisplayName: "Jane", Role: model.UserRoleAuthor, Status: tt.to,
 			})
 			assertValidationError(t, err, "status")
 		})
@@ -376,32 +389,44 @@ func TestService_UpdateRejectsInvalidStatusTransitions(t *testing.T) {
 }
 
 func TestService_UpdateValidation(t *testing.T) {
-	valid := func() *users.User {
-		return &users.User{
+	valid := func() *model.User {
+		return &model.User{
 			ID: "user-1", Username: "jane-doe", Email: "jane@example.com",
-			DisplayName: "Jane Doe", Role: users.UserRoleAuthor, Status: users.UserStatusActive,
+			DisplayName: "Jane Doe", Role: model.UserRoleAuthor, Status: model.UserStatusActive,
 		}
 	}
 	tests := []struct {
-		name string
-		user func() *users.User
+		name  string
+		user  func() *model.User
 		field string
 	}{
-		{name: "nil user", user: func() *users.User { return nil }, field: "user"},
-		{name: "blank ID", user: func() *users.User { p := valid(); p.ID = " \t "; return p }, field: "id"},
-		{name: "blank username", user: func() *users.User { p := valid(); p.Username = "  "; return p }, field: "username"},
-		{name: "invalid username", user: func() *users.User { p := valid(); p.Username = "not_a_name"; return p }, field: "username"},
-		{name: "username too long", user: func() *users.User { p := valid(); p.Username = strings.Repeat("a", users.MaxUsernameLength+1); return p }, field: "username"},
-		{name: "blank email", user: func() *users.User { p := valid(); p.Email = "  "; return p }, field: "email"},
-		{name: "invalid email", user: func() *users.User { p := valid(); p.Email = "not-an-email"; return p }, field: "email"},
-		{name: "email too long", user: func() *users.User { p := valid(); p.Email = strings.Repeat("a", users.MaxEmailLength) + "@example.com"; return p }, field: "email"},
-		{name: "blank display name", user: func() *users.User { p := valid(); p.DisplayName = "  "; return p }, field: "display_name"},
-		{name: "display name too long", user: func() *users.User { p := valid(); p.DisplayName = strings.Repeat("x", users.MaxDisplayNameLength+1); return p }, field: "display_name"},
-		{name: "bio too long", user: func() *users.User { p := valid(); p.Bio = strings.Repeat("x", users.MaxBioLength+1); return p }, field: "bio"},
-		{name: "role required", user: func() *users.User { p := valid(); p.Role = ""; return p }, field: "role"},
-		{name: "unknown role", user: func() *users.User { p := valid(); p.Role = "superadmin"; return p }, field: "role"},
-		{name: "status required", user: func() *users.User { p := valid(); p.Status = ""; return p }, field: "status"},
-		{name: "unknown status", user: func() *users.User { p := valid(); p.Status = "archived"; return p }, field: "status"},
+		{name: "nil user", user: func() *model.User { return nil }, field: "user"},
+		{name: "blank ID", user: func() *model.User { p := valid(); p.ID = " \t "; return p }, field: "id"},
+		{name: "blank username", user: func() *model.User { p := valid(); p.Username = "  "; return p }, field: "username"},
+		{name: "invalid username", user: func() *model.User { p := valid(); p.Username = "not_a_name"; return p }, field: "username"},
+		{name: "username too long", user: func() *model.User {
+			p := valid()
+			p.Username = strings.Repeat("a", users.MaxUsernameLength+1)
+			return p
+		}, field: "username"},
+		{name: "blank email", user: func() *model.User { p := valid(); p.Email = "  "; return p }, field: "email"},
+		{name: "invalid email", user: func() *model.User { p := valid(); p.Email = "not-an-email"; return p }, field: "email"},
+		{name: "email too long", user: func() *model.User {
+			p := valid()
+			p.Email = strings.Repeat("a", users.MaxEmailLength) + "@example.com"
+			return p
+		}, field: "email"},
+		{name: "blank display name", user: func() *model.User { p := valid(); p.DisplayName = "  "; return p }, field: "display_name"},
+		{name: "display name too long", user: func() *model.User {
+			p := valid()
+			p.DisplayName = strings.Repeat("x", users.MaxDisplayNameLength+1)
+			return p
+		}, field: "display_name"},
+		{name: "bio too long", user: func() *model.User { p := valid(); p.Bio = strings.Repeat("x", users.MaxBioLength+1); return p }, field: "bio"},
+		{name: "role required", user: func() *model.User { p := valid(); p.Role = ""; return p }, field: "role"},
+		{name: "unknown role", user: func() *model.User { p := valid(); p.Role = "superadmin"; return p }, field: "role"},
+		{name: "status required", user: func() *model.User { p := valid(); p.Status = ""; return p }, field: "status"},
+		{name: "unknown status", user: func() *model.User { p := valid(); p.Status = "archived"; return p }, field: "status"},
 	}
 
 	for _, tt := range tests {
@@ -418,9 +443,9 @@ func TestService_UpdateReturnsNotFound(t *testing.T) {
 	ctx := context.Background()
 	repo.EXPECT().GetByID(ctx, "missing").Return(nil, users.ErrNotFound)
 
-	_, err := service.Update(ctx, &users.User{
+	_, err := service.Update(ctx, &model.User{
 		ID: "missing", Username: "jane-doe", Email: "jane@example.com",
-		DisplayName: "Jane", Role: users.UserRoleAuthor, Status: users.UserStatusActive,
+		DisplayName: "Jane", Role: model.UserRoleAuthor, Status: model.UserStatusActive,
 	})
 	require.ErrorIs(t, err, users.ErrNotFound)
 }
@@ -431,9 +456,9 @@ func TestService_UpdateReturnsLookupError(t *testing.T) {
 	repoErr := errors.New("lookup failed")
 	repo.EXPECT().GetByID(ctx, "user-1").Return(nil, repoErr)
 
-	_, err := service.Update(ctx, &users.User{
+	_, err := service.Update(ctx, &model.User{
 		ID: "user-1", Username: "jane-doe", Email: "jane@example.com",
-		DisplayName: "Jane", Role: users.UserRoleAuthor, Status: users.UserStatusActive,
+		DisplayName: "Jane", Role: model.UserRoleAuthor, Status: model.UserStatusActive,
 	})
 	require.ErrorIs(t, err, repoErr)
 }
@@ -441,16 +466,16 @@ func TestService_UpdateReturnsLookupError(t *testing.T) {
 func TestService_UpdateReturnsRepositoryError(t *testing.T) {
 	repo, service := newService(t)
 	ctx := context.Background()
-	current := testUser("user-1", users.UserStatusActive)
+	current := testUser("user-1", model.UserStatusActive)
 	repoErr := errors.New("update failed")
 	gomock.InOrder(
 		repo.EXPECT().GetByID(ctx, "user-1").Return(&current, nil),
 		repo.EXPECT().Update(ctx, gomock.Any()).Return(nil, repoErr),
 	)
 
-	_, err := service.Update(ctx, &users.User{
+	_, err := service.Update(ctx, &model.User{
 		ID: "user-1", Username: "jane-doe", Email: "jane@example.com",
-		DisplayName: "Jane", Role: users.UserRoleAuthor, Status: users.UserStatusActive,
+		DisplayName: "Jane", Role: model.UserRoleAuthor, Status: model.UserStatusActive,
 	})
 	require.ErrorIs(t, err, repoErr)
 }
@@ -492,20 +517,20 @@ func assertValidationError(t *testing.T, err error, field string) {
 	assert.Equal(t, field, validationErr.Field)
 }
 
-func testUser(id string, status users.UserStatus) users.User {
+func testUser(id string, status model.UserStatus) model.User {
 	now := time.Now().UTC().Add(-time.Hour)
-	return users.User{
+	return model.User{
 		ID: id, Username: "user-" + id, Email: "user-" + id + "@example.com",
-		DisplayName: "Display " + id, Bio: "bio", Role: users.UserRoleAuthor, Status: status,
+		DisplayName: "Display " + id, Bio: "bio", Role: model.UserRoleAuthor, Status: status,
 		CreatedAt: now, UpdatedAt: now,
 	}
 }
 
-func cloneUser(user users.User) users.User {
+func cloneUser(user model.User) model.User {
 	return user
 }
 
-func cloneUserPtr(user *users.User) *users.User {
+func cloneUserPtr(user *model.User) *model.User {
 	if user == nil {
 		return nil
 	}

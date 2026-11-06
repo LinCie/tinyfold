@@ -7,15 +7,16 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"tinyfold/internal/model"
 	"tinyfold/internal/pkg/validation"
 )
 
 //go:generate mockgen -source=service.go -destination=mock/service.go -package=mock
 type Service interface {
-	Create(ctx context.Context, user *User) (*User, error)
-	GetMany(ctx context.Context) ([]User, error)
-	GetByID(ctx context.Context, id string) (*User, error)
-	Update(ctx context.Context, user *User) (*User, error)
+	Create(ctx context.Context, user *model.User) (*model.User, error)
+	GetMany(ctx context.Context) ([]model.User, error)
+	GetByID(ctx context.Context, id string) (*model.User, error)
+	Update(ctx context.Context, user *model.User) (*model.User, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -33,7 +34,7 @@ var (
 )
 
 // Create implements [Service].
-func (s service) Create(ctx context.Context, user *User) (*User, error) {
+func (s service) Create(ctx context.Context, user *model.User) (*model.User, error) {
 	if user == nil {
 		return nil, invalid("user", "is required")
 	}
@@ -56,7 +57,7 @@ func (s service) Create(ctx context.Context, user *User) (*User, error) {
 
 	role := user.Role
 	if role == "" {
-		role = UserRoleAuthor
+		role = model.UserRoleAuthor
 	}
 	if !validRole(role) {
 		return nil, invalid("role", "is invalid")
@@ -64,13 +65,13 @@ func (s service) Create(ctx context.Context, user *User) (*User, error) {
 
 	status := user.Status
 	if status == "" {
-		status = UserStatusInvited
+		status = model.UserStatusInvited
 	}
-	if status != UserStatusInvited {
+	if status != model.UserStatusInvited {
 		return nil, invalid("status", "must be invited when creating a user")
 	}
 
-	created := &User{
+	created := &model.User{
 		Username: username, Email: email, DisplayName: displayName, Bio: user.Bio,
 		Role: role, Status: status,
 	}
@@ -78,7 +79,7 @@ func (s service) Create(ctx context.Context, user *User) (*User, error) {
 }
 
 // GetByID implements [Service].
-func (s service) GetByID(ctx context.Context, id string) (*User, error) {
+func (s service) GetByID(ctx context.Context, id string) (*model.User, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return nil, invalid("id", "is required")
@@ -95,19 +96,19 @@ func (s service) GetByID(ctx context.Context, id string) (*User, error) {
 }
 
 // GetMany implements [Service].
-func (s service) GetMany(ctx context.Context) ([]User, error) {
+func (s service) GetMany(ctx context.Context) ([]model.User, error) {
 	users, err := s.repo.GetMany(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if users == nil {
-		users = []User{}
+		users = []model.User{}
 	}
 	return users, nil
 }
 
 // Update implements [Service].
-func (s service) Update(ctx context.Context, user *User) (*User, error) {
+func (s service) Update(ctx context.Context, user *model.User) (*model.User, error) {
 	if user == nil {
 		return nil, invalid("user", "is required")
 	}
@@ -150,7 +151,7 @@ func (s service) Update(ctx context.Context, user *User) (*User, error) {
 	}
 
 	now := time.Now().UTC()
-	updated := &User{
+	updated := &model.User{
 		ID: id, Username: username, Email: email, DisplayName: displayName, Bio: user.Bio,
 		Role: user.Role, Status: user.Status,
 		CreatedAt: current.CreatedAt, UpdatedAt: now,
@@ -201,22 +202,22 @@ func validateDisplayName(displayName string) (string, error) {
 	return displayName, nil
 }
 
-func validRole(role UserRole) bool {
-	return role == UserRoleAdmin || role == UserRoleEditor || role == UserRoleAuthor
+func validRole(role model.UserRole) bool {
+	return role == model.UserRoleAdmin || role == model.UserRoleEditor || role == model.UserRoleAuthor
 }
 
-func validStatus(status UserStatus) bool {
-	return status == UserStatusInvited || status == UserStatusActive || status == UserStatusDisabled
+func validStatus(status model.UserStatus) bool {
+	return status == model.UserStatusInvited || status == model.UserStatusActive || status == model.UserStatusDisabled
 }
 
-func validTransition(from, to UserStatus) bool {
+func validTransition(from, to model.UserStatus) bool {
 	switch from {
-	case UserStatusInvited:
+	case model.UserStatusInvited:
 		return validStatus(to)
-	case UserStatusActive:
-		return to == UserStatusActive || to == UserStatusDisabled
-	case UserStatusDisabled:
-		return to == UserStatusDisabled || to == UserStatusActive
+	case model.UserStatusActive:
+		return to == model.UserStatusActive || to == model.UserStatusDisabled
+	case model.UserStatusDisabled:
+		return to == model.UserStatusDisabled || to == model.UserStatusActive
 	default:
 		return false
 	}

@@ -7,15 +7,16 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"tinyfold/internal/model"
 	"tinyfold/internal/pkg/validation"
 )
 
 //go:generate mockgen -source=service.go -destination=mock/service.go -package=mock
 type Service interface {
-	Create(ctx context.Context, post *Post) (*Post, error)
-	GetMany(ctx context.Context) ([]Post, error)
-	GetByID(ctx context.Context, id string) (*Post, error)
-	Update(ctx context.Context, post *Post) (*Post, error)
+	Create(ctx context.Context, post *model.Post) (*model.Post, error)
+	GetMany(ctx context.Context) ([]model.Post, error)
+	GetByID(ctx context.Context, id string) (*model.Post, error)
+	Update(ctx context.Context, post *model.Post) (*model.Post, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -30,7 +31,7 @@ func NewService(repo Repository) Service {
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 // Create implements [Service].
-func (s service) Create(ctx context.Context, post *Post) (*Post, error) {
+func (s service) Create(ctx context.Context, post *model.Post) (*model.Post, error) {
 	if post == nil {
 		return nil, invalid("post", "is required")
 	}
@@ -49,20 +50,20 @@ func (s service) Create(ctx context.Context, post *Post) (*Post, error) {
 
 	status := post.Status
 	if status == "" {
-		status = PostStatusDraft
+		status = model.PostStatusDraft
 	}
-	if status != PostStatusDraft {
+	if status != model.PostStatusDraft {
 		return nil, invalid("status", "must be draft when creating a post")
 	}
 
-	created := &Post{
+	created := &model.Post{
 		Title: title, Slug: slug, Content: post.Content, Status: status,
 	}
 	return s.repo.Create(ctx, created)
 }
 
 // GetByID implements [Service].
-func (s service) GetByID(ctx context.Context, id string) (*Post, error) {
+func (s service) GetByID(ctx context.Context, id string) (*model.Post, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return nil, invalid("id", "is required")
@@ -79,19 +80,19 @@ func (s service) GetByID(ctx context.Context, id string) (*Post, error) {
 }
 
 // GetMany implements [Service].
-func (s service) GetMany(ctx context.Context) ([]Post, error) {
+func (s service) GetMany(ctx context.Context) ([]model.Post, error) {
 	posts, err := s.repo.GetMany(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if posts == nil {
-		posts = []Post{}
+		posts = []model.Post{}
 	}
 	return posts, nil
 }
 
 // Update implements [Service].
-func (s service) Update(ctx context.Context, post *Post) (*Post, error) {
+func (s service) Update(ctx context.Context, post *model.Post) (*model.Post, error) {
 	if post == nil {
 		return nil, invalid("post", "is required")
 	}
@@ -127,16 +128,16 @@ func (s service) Update(ctx context.Context, post *Post) (*Post, error) {
 	}
 
 	now := time.Now().UTC()
-	updated := &Post{
+	updated := &model.Post{
 		ID: id, Title: title, Slug: slug, Content: post.Content, Status: post.Status,
 		CreatedAt: current.CreatedAt, UpdatedAt: now,
 		PublishedAt: current.PublishedAt, ArchivedAt: current.ArchivedAt,
 	}
-	if post.Status == PostStatusPublished && updated.PublishedAt == nil {
+	if post.Status == model.PostStatusPublished && updated.PublishedAt == nil {
 		publishedAt := now
 		updated.PublishedAt = &publishedAt
 	}
-	if post.Status == PostStatusArchived && updated.ArchivedAt == nil {
+	if post.Status == model.PostStatusArchived && updated.ArchivedAt == nil {
 		archivedAt := now
 		updated.ArchivedAt = &archivedAt
 	}
@@ -175,18 +176,18 @@ func validateSlug(slug string) (string, error) {
 	return slug, nil
 }
 
-func validStatus(status PostStatus) bool {
-	return status == PostStatusDraft || status == PostStatusPublished || status == PostStatusArchived
+func validStatus(status model.PostStatus) bool {
+	return status == model.PostStatusDraft || status == model.PostStatusPublished || status == model.PostStatusArchived
 }
 
-func validTransition(from, to PostStatus) bool {
+func validTransition(from, to model.PostStatus) bool {
 	switch from {
-	case PostStatusDraft:
+	case model.PostStatusDraft:
 		return validStatus(to)
-	case PostStatusPublished:
-		return to == PostStatusPublished || to == PostStatusArchived
-	case PostStatusArchived:
-		return to == PostStatusArchived
+	case model.PostStatusPublished:
+		return to == model.PostStatusPublished || to == model.PostStatusArchived
+	case model.PostStatusArchived:
+		return to == model.PostStatusArchived
 	default:
 		return false
 	}

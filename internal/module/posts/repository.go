@@ -8,14 +8,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/segmentio/ksuid"
+	"tinyfold/internal/model"
 )
 
 //go:generate mockgen -source=repository.go -destination=mock/repository.go -package=mock
 type Repository interface {
-	Create(ctx context.Context, post *Post) (*Post, error)
-	GetMany(ctx context.Context) ([]Post, error)
-	GetByID(ctx context.Context, id string) (*Post, error)
-	Update(ctx context.Context, post *Post) (*Post, error)
+	Create(ctx context.Context, post *model.Post) (*model.Post, error)
+	GetMany(ctx context.Context) ([]model.Post, error)
+	GetByID(ctx context.Context, id string) (*model.Post, error)
+	Update(ctx context.Context, post *model.Post) (*model.Post, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -29,7 +30,7 @@ func NewSQLiteRepository(db *sqlx.DB) Repository {
 
 const postColumns = `id, title, slug, content, status, created_at, updated_at, published_at, archived_at`
 
-func (p *sqliteRepository) Create(ctx context.Context, post *Post) (*Post, error) {
+func (p *sqliteRepository) Create(ctx context.Context, post *model.Post) (*model.Post, error) {
 	if post == nil {
 		return nil, ErrInvalidPost
 	}
@@ -49,8 +50,8 @@ func (p *sqliteRepository) Create(ctx context.Context, post *Post) (*Post, error
 	return &created, nil
 }
 
-func (p *sqliteRepository) GetByID(ctx context.Context, id string) (*Post, error) {
-	var post Post
+func (p *sqliteRepository) GetByID(ctx context.Context, id string) (*model.Post, error) {
+	var post model.Post
 	err := p.db.GetContext(ctx, &post, `SELECT `+postColumns+` FROM posts WHERE id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -61,15 +62,15 @@ func (p *sqliteRepository) GetByID(ctx context.Context, id string) (*Post, error
 	return &post, nil
 }
 
-func (p *sqliteRepository) GetMany(ctx context.Context) ([]Post, error) {
-	var posts []Post
+func (p *sqliteRepository) GetMany(ctx context.Context) ([]model.Post, error) {
+	var posts []model.Post
 	if err := p.db.SelectContext(ctx, &posts, `SELECT `+postColumns+` FROM posts`); err != nil {
 		return nil, err
 	}
 	return posts, nil
 }
 
-func (p *sqliteRepository) Update(ctx context.Context, post *Post) (*Post, error) {
+func (p *sqliteRepository) Update(ctx context.Context, post *model.Post) (*model.Post, error) {
 	if post == nil {
 		return nil, ErrInvalidPost
 	}

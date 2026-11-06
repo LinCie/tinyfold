@@ -13,6 +13,7 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 
 	"tinyfold/internal/database"
+	"tinyfold/internal/model"
 	"tinyfold/internal/module/posts"
 )
 
@@ -40,11 +41,11 @@ func TestSQLiteRepository_Create(t *testing.T) {
 	_, repo := newSQLiteRepository(t)
 	ctx := context.Background()
 	start := time.Now().UTC().Add(-time.Second)
-	input := &posts.Post{
+	input := &model.Post{
 		Title:   "O'Brien; --",
 		Slug:    "hello-world",
 		Content: "Post body",
-		Status:  posts.PostStatusDraft,
+		Status:  model.PostStatusDraft,
 	}
 
 	got, err := repo.Create(ctx, input)
@@ -81,23 +82,23 @@ func TestSQLiteRepository_CreateRejectsNilPost(t *testing.T) {
 func TestSQLiteRepository_CreateRejectsDatabaseConstraintViolations(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
-		mutate func(*posts.Post)
+		mutate func(*model.Post)
 	}{
 		{
 			name: "blank title",
-			mutate: func(post *posts.Post) {
+			mutate: func(post *model.Post) {
 				post.Title = ""
 			},
 		},
 		{
 			name: "blank slug",
-			mutate: func(post *posts.Post) {
+			mutate: func(post *model.Post) {
 				post.Slug = ""
 			},
 		},
 		{
 			name: "unknown status",
-			mutate: func(post *posts.Post) {
+			mutate: func(post *model.Post) {
 				post.Status = "scheduled"
 			},
 		},
@@ -117,7 +118,7 @@ func TestSQLiteRepository_CreateRejectsDatabaseConstraintViolations(t *testing.T
 
 func TestSQLiteRepository_CreateRejectsDuplicateSlug(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	insertPost(t, db, postFixture("existing", "duplicate-slug", posts.PostStatusDraft))
+	insertPost(t, db, postFixture("existing", "duplicate-slug", model.PostStatusDraft))
 
 	got, err := repo.Create(context.Background(), validDraftPost("duplicate-slug"))
 
@@ -127,7 +128,7 @@ func TestSQLiteRepository_CreateRejectsDuplicateSlug(t *testing.T) {
 
 func TestSQLiteRepository_GetByID(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	want := postFixture("post-1", "first-post", posts.PostStatusPublished)
+	want := postFixture("post-1", "first-post", model.PostStatusPublished)
 	publishedAt := time.Date(2025, time.January, 2, 3, 4, 5, 0, time.UTC)
 	want.PublishedAt = &publishedAt
 	insertPost(t, db, want)
@@ -150,8 +151,8 @@ func TestSQLiteRepository_GetByIDNotFound(t *testing.T) {
 
 func TestSQLiteRepository_GetMany(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	first := postFixture("post-1", "first-post", posts.PostStatusDraft)
-	second := postFixture("post-2", "second-post", posts.PostStatusArchived)
+	first := postFixture("post-1", "first-post", model.PostStatusDraft)
+	second := postFixture("post-2", "second-post", model.PostStatusArchived)
 	archivedAt := time.Date(2025, time.February, 3, 4, 5, 6, 0, time.UTC)
 	second.ArchivedAt = &archivedAt
 	insertPost(t, db, first)
@@ -161,7 +162,7 @@ func TestSQLiteRepository_GetMany(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, got, 2)
-	byID := make(map[string]posts.Post, len(got))
+	byID := make(map[string]model.Post, len(got))
 	for _, post := range got {
 		byID[post.ID] = post
 	}
@@ -182,16 +183,16 @@ func TestSQLiteRepository_GetManyEmpty(t *testing.T) {
 
 func TestSQLiteRepository_Update(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	original := postFixture("post-1", "first-post", posts.PostStatusDraft)
+	original := postFixture("post-1", "first-post", model.PostStatusDraft)
 	insertPost(t, db, original)
 
 	publishedAt := time.Date(2025, time.March, 4, 5, 6, 7, 0, time.UTC)
-	updated := posts.Post{
+	updated := model.Post{
 		ID:          original.ID,
 		Title:       "Updated title",
 		Slug:        "updated-post",
 		Content:     "Updated content",
-		Status:      posts.PostStatusPublished,
+		Status:      model.PostStatusPublished,
 		CreatedAt:   original.CreatedAt,
 		UpdatedAt:   time.Date(2025, time.March, 5, 6, 7, 8, 0, time.UTC),
 		PublishedAt: &publishedAt,
@@ -211,7 +212,7 @@ func TestSQLiteRepository_Update(t *testing.T) {
 
 func TestSQLiteRepository_UpdateNotFound(t *testing.T) {
 	_, repo := newSQLiteRepository(t)
-	missing := postFixture("missing", "missing-post", posts.PostStatusDraft)
+	missing := postFixture("missing", "missing-post", model.PostStatusDraft)
 
 	got, err := repo.Update(context.Background(), &missing)
 
@@ -230,7 +231,7 @@ func TestSQLiteRepository_UpdateRejectsNilPost(t *testing.T) {
 
 func TestSQLiteRepository_Delete(t *testing.T) {
 	db, repo := newSQLiteRepository(t)
-	post := postFixture("post-1", "first-post", posts.PostStatusDraft)
+	post := postFixture("post-1", "first-post", model.PostStatusDraft)
 	insertPost(t, db, post)
 
 	err := repo.Delete(context.Background(), post.ID)
@@ -251,17 +252,17 @@ func TestSQLiteRepository_PropagatesCanceledContext(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func validDraftPost(slug string) *posts.Post {
-	return &posts.Post{
+func validDraftPost(slug string) *model.Post {
+	return &model.Post{
 		Title:   "A title",
 		Slug:    slug,
 		Content: "Post body",
-		Status:  posts.PostStatusDraft,
+		Status:  model.PostStatusDraft,
 	}
 }
 
-func postFixture(id, slug string, status posts.PostStatus) posts.Post {
-	return posts.Post{
+func postFixture(id, slug string, status model.PostStatus) model.Post {
+	return model.Post{
 		ID:        id,
 		Title:     "Title for " + id,
 		Slug:      slug,
@@ -272,7 +273,7 @@ func postFixture(id, slug string, status posts.PostStatus) posts.Post {
 	}
 }
 
-func insertPost(t *testing.T, db *sqlx.DB, post posts.Post) {
+func insertPost(t *testing.T, db *sqlx.DB, post model.Post) {
 	t.Helper()
 
 	_, err := db.ExecContext(
@@ -308,7 +309,7 @@ func requireSQLiteConstraintError(t *testing.T, err error) {
 	assert.Equal(t, sqlite3.SQLITE_CONSTRAINT, sqliteErr.Code()&0xff)
 }
 
-func assertPostEqual(t *testing.T, want, got posts.Post) {
+func assertPostEqual(t *testing.T, want, got model.Post) {
 	t.Helper()
 
 	assert.Equal(t, want.ID, got.ID)

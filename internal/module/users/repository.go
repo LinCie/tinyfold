@@ -8,14 +8,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/segmentio/ksuid"
+	"tinyfold/internal/model"
 )
 
 //go:generate mockgen -source=repository.go -destination=mock/repository.go -package=mock
 type Repository interface {
-	Create(ctx context.Context, user *User) (*User, error)
-	GetMany(ctx context.Context) ([]User, error)
-	GetByID(ctx context.Context, id string) (*User, error)
-	Update(ctx context.Context, user *User) (*User, error)
+	Create(ctx context.Context, user *model.User) (*model.User, error)
+	GetMany(ctx context.Context) ([]model.User, error)
+	GetByID(ctx context.Context, id string) (*model.User, error)
+	Update(ctx context.Context, user *model.User) (*model.User, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -29,7 +30,7 @@ func NewSQLiteRepository(db *sqlx.DB) Repository {
 
 const userColumns = `id, username, email, display_name, bio, role, status, created_at, updated_at`
 
-func (r *sqliteRepository) Create(ctx context.Context, user *User) (*User, error) {
+func (r *sqliteRepository) Create(ctx context.Context, user *model.User) (*model.User, error) {
 	if user == nil {
 		return nil, ErrInvalidUser
 	}
@@ -49,8 +50,8 @@ func (r *sqliteRepository) Create(ctx context.Context, user *User) (*User, error
 	return &created, nil
 }
 
-func (r *sqliteRepository) GetByID(ctx context.Context, id string) (*User, error) {
-	var user User
+func (r *sqliteRepository) GetByID(ctx context.Context, id string) (*model.User, error) {
+	var user model.User
 	err := r.db.GetContext(ctx, &user, `SELECT `+userColumns+` FROM users WHERE id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -61,15 +62,15 @@ func (r *sqliteRepository) GetByID(ctx context.Context, id string) (*User, error
 	return &user, nil
 }
 
-func (r *sqliteRepository) GetMany(ctx context.Context) ([]User, error) {
-	var users []User
+func (r *sqliteRepository) GetMany(ctx context.Context) ([]model.User, error) {
+	var users []model.User
 	if err := r.db.SelectContext(ctx, &users, `SELECT `+userColumns+` FROM users`); err != nil {
 		return nil, err
 	}
 	return users, nil
 }
 
-func (r *sqliteRepository) Update(ctx context.Context, user *User) (*User, error) {
+func (r *sqliteRepository) Update(ctx context.Context, user *model.User) (*model.User, error) {
 	if user == nil {
 		return nil, ErrInvalidUser
 	}
