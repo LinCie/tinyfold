@@ -4,11 +4,13 @@ go 1.26.8
 
 require (
 	github.com/go-chi/chi/v5 v5.5.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/mock v0.6.0
+	golang.org/x/crypto v0.58.0
 	modernc.org/sqlite v1.61.0
 )
 

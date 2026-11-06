@@ -96,7 +96,7 @@ func TestHandler_GetMany(t *testing.T) {
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
 	wantResponse := make([]users.UserResponse, 0, len(want))
 	for _, u := range want {
-		wantResponse = append(wantResponse, users.UserResponse(u))
+		wantResponse = append(wantResponse, users.ToUserResponse(u))
 	}
 	assert.Equal(t, wantResponse, body.Data)
 }
@@ -191,6 +191,6 @@ func assertUserResponse(t *testing.T, response *httptest.ResponseRecorder, want 
 		Data *users.UserResponse `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
-	wantResponse := users.UserResponse(*want)
+	wantResponse := users.ToUserResponse(*want)
 	assert.Equal(t, &wantResponse, body.Data)
 }

@@ -28,7 +28,7 @@ func NewSQLiteRepository(db *sqlx.DB) Repository {
 	return &sqliteRepository{db: db}
 }
 
-const userColumns = `id, username, email, display_name, bio, role, status, created_at, updated_at`
+const userColumns = `id, password_hash, username, email, display_name, bio, role, status, created_at, updated_at`
 
 func (r *sqliteRepository) Create(ctx context.Context, user *model.User) (*model.User, error) {
 	if user == nil {
@@ -40,8 +40,8 @@ func (r *sqliteRepository) Create(ctx context.Context, user *model.User) (*model
 	created.UpdatedAt = created.CreatedAt
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO users (`+userColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		created.ID, created.Username, created.Email, created.DisplayName, created.Bio,
+		`INSERT INTO users (`+userColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		created.ID, created.PasswordHash, created.Username, created.Email, created.DisplayName, created.Bio,
 		created.Role, created.Status, created.CreatedAt, created.UpdatedAt,
 	)
 	if err != nil {

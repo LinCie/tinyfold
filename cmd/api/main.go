@@ -22,9 +22,14 @@ func main() {
 	}
 	defer db.Close()
 
+	handler, err := router.NewRouter(db, cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: router.NewRouter(db),
+		Handler: handler,
 	}
 
 	log.Printf("server listening on %s", server.Addr)

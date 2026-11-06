@@ -72,7 +72,8 @@ func (s service) Create(ctx context.Context, user *model.User) (*model.User, err
 	}
 
 	created := &model.User{
-		Username: username, Email: email, DisplayName: displayName, Bio: user.Bio,
+		PasswordHash: user.PasswordHash,
+		Username:     username, Email: email, DisplayName: displayName, Bio: user.Bio,
 		Role: role, Status: status,
 	}
 	return s.repo.Create(ctx, created)

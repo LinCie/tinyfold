@@ -19,13 +19,14 @@ var (
 )
 
 type User struct {
-	ID          string     `db:"id"`
-	Username    string     `db:"username"`
-	Email       string     `db:"email"`
-	DisplayName string     `db:"display_name"`
-	Bio         string     `db:"bio"`
-	Role        UserRole   `db:"role"`
-	Status      UserStatus `db:"status"`
-	CreatedAt   time.Time  `db:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at"`
+	ID           string     `db:"id"`
+	PasswordHash string     `db:"password_hash" json:"-"`
+	Username     string     `db:"username"`
+	Email        string     `db:"email"`
+	DisplayName  string     `db:"display_name"`
+	Bio          string     `db:"bio"`
+	Role         UserRole   `db:"role"`
+	Status       UserStatus `db:"status"`
+	CreatedAt    time.Time  `db:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at"`
 }

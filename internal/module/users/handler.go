@@ -29,7 +29,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, err)
 		return
 	}
-	httpx.RespondJSON(w, http.StatusCreated, UserResponse(*created))
+	httpx.RespondJSON(w, http.StatusCreated, ToUserResponse(*created))
 }
 
 func (h *Handler) GetMany(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func (h *Handler) GetMany(w http.ResponseWriter, r *http.Request) {
 	}
 	responses := make([]UserResponse, 0, len(users))
 	for _, u := range users {
-		responses = append(responses, UserResponse(u))
+		responses = append(responses, ToUserResponse(u))
 	}
 	httpx.RespondJSON(w, http.StatusOK, responses)
 }
@@ -51,7 +51,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, err)
 		return
 	}
-	httpx.RespondJSON(w, http.StatusOK, UserResponse(*user))
+	httpx.RespondJSON(w, http.StatusOK, ToUserResponse(*user))
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +66,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, err)
 		return
 	}
-	httpx.RespondJSON(w, http.StatusOK, UserResponse(*updated))
+	httpx.RespondJSON(w, http.StatusOK, ToUserResponse(*updated))
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
